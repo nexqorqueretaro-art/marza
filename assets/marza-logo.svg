@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 720 190" role="img" aria-labelledby="title desc">
+  <title id="title">MARZA Bienes Raíces</title>
+  <desc id="desc">Símbolo geométrico entrelazado y nombre MARZA Bienes Raíces.</desc>
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#c89b6b"/>
+      <stop offset="1" stop-color="#4b2d1f"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(18,15)" fill="none" stroke="url(#g)" stroke-width="9" stroke-linecap="round">
+    <path d="M20 64h74V14"/><path d="M20 84h54V14"/><path d="M20 104h34V14"/><path d="M20 124h14V14"/>
+    <path d="M64 20v74h50"/><path d="M84 20v54h30"/><path d="M104 20v34h10"/>
+    <path d="M114 64H40v74"/><path d="M114 84H60v54"/><path d="M114 104H80v34"/><path d="M114 124h-14v14"/>
+  </g>
+  <g fill="#4b2d1f">
+    <text x="175" y="108" font-family="Montserrat, Arial, sans-serif" font-size="88" font-weight="500" letter-spacing="14">MARZA</text>
+    <text x="184" y="154" font-family="Montserrat, Arial, sans-serif" font-size="25" font-weight="600" letter-spacing="12" fill="#c89b6b">BIENES RAÍCES</text>
+  </g>
+</svg>
