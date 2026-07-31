@@ -284,12 +284,51 @@ function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight,maxLines){
   if(line)lines.push(line);lines.slice(0,maxLines).forEach((l,i)=>ctx.fillText(l,x,y+i*lineHeight));
 }
 let marketplaceProperty=null;
+let reopenAdminAfterMarketplace=false;
 async function openMarketplaceTools(){
-  const id=$('#propertyId').value,p=adminProperties.find(x=>String(x.id)===String(id));if(!p)return alert('Guarda primero la propiedad.');
-  marketplaceProperty=p;$('#marketplaceTitle').value=marketplaceTitleFor(p);$('#marketplacePrice').value=money(p.price,p.currency);$('#marketplaceLink').value=propertyPublicUrl(p.id);$('#marketplaceDescription').value=marketplaceDescriptionFor(p);$('#marketplaceStatus').textContent='';
-  $('#marketplaceDialog').showModal();await renderMarketplaceCanvas(p);
+  try{
+    const id=$('#propertyId').value;
+    const p=adminProperties.find(x=>String(x.id)===String(id));
+    if(!p){ alert('Selecciona y guarda primero una propiedad.'); return; }
+
+    marketplaceProperty=p;
+    $('#marketplaceTitle').value=marketplaceTitleFor(p);
+    $('#marketplacePrice').value=money(p.price,p.currency);
+    $('#marketplaceLink').value=propertyPublicUrl(p.id);
+    $('#marketplaceDescription').value=marketplaceDescriptionFor(p);
+    $('#marketplaceStatus').textContent='Preparando vista previa…';
+
+    const adminDialog=$('#adminDialog');
+    const marketplaceDialog=$('#marketplaceDialog');
+    reopenAdminAfterMarketplace=Boolean(adminDialog?.open);
+
+    // Evita intentar abrir dos diálogos modales al mismo tiempo.
+    if(adminDialog?.open) adminDialog.close();
+    if(!marketplaceDialog.open) marketplaceDialog.showModal();
+
+    try{
+      await renderMarketplaceCanvas(p);
+      $('#marketplaceStatus').textContent='Material listo para publicar.';
+    }catch(canvasError){
+      console.error('No se pudo generar la portada:',canvasError);
+      $('#marketplaceStatus').textContent='Los textos están listos. No se pudo generar la portada automáticamente; revisa la conexión o el bloqueador del navegador.';
+    }
+  }catch(error){
+    console.error('Error al abrir Marketplace:',error);
+    alert('No se pudo abrir Publicidad Marketplace: '+(error?.message||error));
+  }
 }
-$('#marketplaceButton').onclick=openMarketplaceTools;
+$('#marketplaceButton').addEventListener('click',openMarketplaceTools);
+
+const marketplaceCloseButton=document.querySelector('[data-close="marketplaceDialog"]');
+if(marketplaceCloseButton){
+  marketplaceCloseButton.addEventListener('click',()=>{
+    setTimeout(()=>{
+      if(reopenAdminAfterMarketplace && !$('#adminDialog').open) $('#adminDialog').showModal();
+      reopenAdminAfterMarketplace=false;
+    },0);
+  });
+}
 $('#copyMarketplaceTitle').onclick=()=>copyText($('#marketplaceTitle').value,'Título');
 $('#copyMarketplaceDescription').onclick=()=>copyText($('#marketplaceDescription').value,'Descripción');
 $('#copyMarketplaceLink').onclick=()=>copyText($('#marketplaceLink').value,'Enlace');

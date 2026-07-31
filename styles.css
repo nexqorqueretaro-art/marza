@@ -70,3 +70,5 @@
 
 /* Herramientas de publicidad Marketplace */
 .marketplace-dialog{width:min(1180px,96vw);padding:0;background:#fcfaf7}.marketplace-panel{padding:34px}.marketplace-panel h2{font-family:Georgia,serif;font-size:clamp(2rem,4vw,3.2rem);margin:0 0 8px}.marketplace-help{color:var(--muted);margin-bottom:24px}.marketplace-preview-wrap{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(360px,1.1fr);gap:26px;align-items:start}.marketplace-preview-wrap canvas{width:100%;height:auto;border-radius:22px;box-shadow:var(--shadow);background:#eee}.marketplace-fields{display:grid;gap:13px}.marketplace-fields label{display:grid;gap:6px;font-weight:750}.marketplace-fields input,.marketplace-fields textarea{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}.marketplace-fields textarea{resize:vertical;line-height:1.5}.marketplace-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.marketplace-actions a{align-self:stretch}.form-actions{flex-wrap:wrap}@media(max-width:800px){.marketplace-preview-wrap{grid-template-columns:1fr}.marketplace-panel{padding:26px 18px}}
+
+.marketplace-status-error{color:#9a3f2e;font-weight:700}
