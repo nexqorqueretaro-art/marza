@@ -258,6 +258,7 @@ function copyText(value,label){
   navigator.clipboard.writeText(value).then(()=>{$('#marketplaceStatus').textContent=`${label} copiado.`}).catch(()=>{prompt('Copia este contenido:',value)});
 }
 function loadImageCORS(src){return new Promise((resolve,reject)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=reject;img.src=src+(src.includes('?')?'&':'?')+'cache='+Date.now()})}
+function loadImageData(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('No se pudo cargar la imagen principal.'));img.src=src})}
 function drawCoverImage(ctx,img,x,y,w,h){
   const r=Math.max(w/img.width,h/img.height),sw=w/r,sh=h/r,sx=(img.width-sw)/2,sy=(img.height-sh)/2;
   ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h);
@@ -266,7 +267,22 @@ async function renderMarketplaceCanvas(p){
   const canvas=$('#marketplaceCanvas'),ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,1080,1080);ctx.fillStyle='#f7f1e8';ctx.fillRect(0,0,1080,1080);
   const cover=(p.photos||[])[0];
-  if(cover){try{const img=await loadImageCORS(cover);drawCoverImage(ctx,img,0,0,1080,720)}catch(e){ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720)}}
+  if(cover){
+    try{
+      // La portada se obtiene desde Apps Script en base64 para evitar el bloqueo CORS de Google Drive.
+      const response=await api('getMarketplaceCoverImage',{token:sessionToken,id:p.id});
+      const img=await loadImageData(response.dataUrl);
+      drawCoverImage(ctx,img,0,0,1080,720);
+    }catch(primaryError){
+      try{
+        const img=await loadImageCORS(cover);
+        drawCoverImage(ctx,img,0,0,1080,720);
+      }catch(fallbackError){
+        console.error('No se pudo cargar la fotografía de portada',primaryError,fallbackError);
+        ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720);
+      }
+    }
+  }else{ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720)}
   const grad=ctx.createLinearGradient(0,480,0,720);grad.addColorStop(0,'rgba(45,27,18,0)');grad.addColorStop(1,'rgba(45,27,18,.82)');ctx.fillStyle=grad;ctx.fillRect(0,480,1080,240);
   ctx.fillStyle='#fff';ctx.font='700 34px Arial';ctx.fillText('MARZA BIENES RAÍCES',58,74);
   ctx.font='700 44px Georgia';wrapCanvasText(ctx,marketplaceTitleFor(p),58,780,720,54,3);
