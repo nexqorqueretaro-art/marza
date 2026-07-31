@@ -58,15 +58,43 @@
             <div id="photoPreview" class="photo-preview wide" aria-label="Orden de fotografías"></div>
             <label>Nombre de contacto<input id="sellerName" /></label><label>WhatsApp<input id="sellerPhone" placeholder="5214420000000" /></label>
             <label>Correo<input id="sellerEmail" type="email" /></label><label>Estado<select id="status"><option value="publicada">Publicada</option><option value="borrador">Borrador</option><option value="apartada">Apartada</option><option value="vendida">Vendida</option><option value="rentada">Rentada</option></select></label>
-            <div class="form-actions wide"><button class="primary" type="submit">Guardar propiedad</button><button id="deleteProperty" class="danger" type="button" hidden>Eliminar</button></div><p id="saveMessage" class="status wide"></p>
+            <div class="form-actions wide"><button class="primary" type="submit">Guardar propiedad</button><button id="marketplaceButton" class="secondary" type="button" hidden>Publicidad Marketplace</button><button id="deleteProperty" class="danger" type="button" hidden>Eliminar</button></div><p id="saveMessage" class="status wide"></p>
           </form>
         </div>
       </div>
     </section>
   </dialog>
 
+
+  <dialog id="marketplaceDialog" class="marketplace-dialog">
+    <button class="close" data-close="marketplaceDialog" aria-label="Cerrar">×</button>
+    <div class="marketplace-panel">
+      <p class="eyebrow">Publicidad</p>
+      <h2>Preparar publicación para Marketplace</h2>
+      <p class="marketplace-help">La app prepara el material. La publicación final se realiza desde Facebook Marketplace.</p>
+      <div class="marketplace-preview-wrap">
+        <canvas id="marketplaceCanvas" width="1080" height="1080"></canvas>
+        <div class="marketplace-fields">
+          <label>Título<input id="marketplaceTitle" readonly></label>
+          <label>Precio<input id="marketplacePrice" readonly></label>
+          <label>Enlace directo<input id="marketplaceLink" readonly></label>
+          <label>Descripción<textarea id="marketplaceDescription" rows="13" readonly></textarea></label>
+          <p id="marketplaceStatus" class="status"></p>
+        </div>
+      </div>
+      <div class="marketplace-actions">
+        <button id="copyMarketplaceTitle" class="secondary" type="button">Copiar título</button>
+        <button id="copyMarketplaceDescription" class="secondary" type="button">Copiar descripción</button>
+        <button id="copyMarketplaceLink" class="secondary" type="button">Copiar enlace</button>
+        <button id="downloadMarketplaceCover" class="primary" type="button">Descargar portada</button>
+        <button id="downloadMarketplacePackage" class="primary" type="button">Descargar paquete ZIP</button>
+        <a id="openMarketplace" class="secondary" target="_blank" rel="noopener" href="https://www.facebook.com/marketplace/create/item">Abrir Marketplace</a>
+      </div>
+    </div>
+  </dialog>
+
   <button id="chatButton" class="chat-button" aria-label="Abrir asistente">💬</button>
   <aside id="chatPanel" class="chat-panel" hidden><div class="chat-head"><strong>Asistente inmobiliario</strong><button id="chatClose">×</button></div><div id="chatMessages" class="chat-messages"></div><form id="chatForm" class="chat-form"><input id="chatInput" placeholder="Escribe tu mensaje" required /><button>Enviar</button></form><small class="privacy-note">Al enviar tus datos aceptas que la inmobiliaria te contacte para atender tu solicitud.</small></aside>
-  <script src="config.js"></script><script src="app.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script><script src="config.js"></script><script src="app.js"></script>
 </body>
 </html>
