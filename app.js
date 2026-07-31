@@ -77,18 +77,22 @@ $('#propertyForm').onsubmit=async e=>{e.preventDefault();$('#saveMessage').textC
 $('#deleteProperty').onclick=async()=>{const id=$('#propertyId').value;if(!id||!confirm('¿Eliminar esta propiedad y sus fotografías? Esta acción no se puede deshacer.'))return;try{await api('deleteProperty',{token:sessionToken,id});resetForm();await Promise.all([loadProperties(),loadAdminProperties()])}catch(e){$('#saveMessage').textContent=e.message}};
 
 const chatState={
-  criteria:{operation:'',type:'',zone:'',minPrice:null,maxPrice:null,bedrooms:null,features:[]},
-  recommended:[],favoritePropertyId:'',name:'',contact:'',email:'',step:'',history:[]
+  criteria:{operation:'',type:'',zone:'',zoneFlexible:false,minPrice:null,maxPrice:null,bedrooms:null,features:[]},
+  recommended:[],favoritePropertyId:'',name:'',contact:'',email:'',step:'',awaiting:'',history:[]
 };
 
 function normalizeText(value=''){
   return String(value).toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 }
+function resetChatSearch(){
+  chatState.criteria={operation:'',type:'',zone:'',zoneFlexible:false,minPrice:null,maxPrice:null,bedrooms:null,features:[]};
+  chatState.recommended=[];chatState.favoritePropertyId='';chatState.awaiting='';
+}
 function formatCriteria(){
   const c=chatState.criteria,parts=[];
   if(c.operation)parts.push(c.operation);
   if(c.type)parts.push(c.type);
-  if(c.zone)parts.push(c.zone);
+  if(c.zoneFlexible)parts.push('cualquier zona'); else if(c.zone)parts.push(c.zone);
   if(c.maxPrice)parts.push(`hasta ${money(c.maxPrice,'MXN')}`);
   if(c.bedrooms)parts.push(`${c.bedrooms}+ recámaras`);
   if(c.features.length)parts.push(c.features.join(', '));
@@ -100,8 +104,34 @@ function parseMoney(text){
   if(m)return Math.round(Number(m[1])*1000000);
   m=t.match(/(?:\$|mxn|pesos?)?\s*(\d+(?:\.\d+)?)\s*(mil)\b/);
   if(m)return Math.round(Number(m[1])*1000);
-  m=t.match(/(?:hasta|maximo|max|presupuesto|menos de|no mas de|entre)?\s*\$?\s*(\d{5,})/);
+  m=t.match(/(?:hasta|maximo|max|presupuesto|menos de|no mas de|entre)?\s*\$?\s*(\d{4,})/);
   return m?Number(m[1]):null;
+}
+function isAnyZone(text){
+  const t=normalizeText(text);
+  return /^(cualquiera|cualquier zona|cualquier lugar|la que sea|donde sea|todas|todas las zonas|no importa|me da igual|indistinto|sin preferencia)$/.test(t)||/cualquier(a)?\s+(zona|lugar)/.test(t);
+}
+function setAwaitedAnswer(text){
+  const t=normalizeText(text),c=chatState.criteria,field=chatState.awaiting;
+  if(!field)return false;
+  if(field==='operation'){
+    if(/rent/.test(t))c.operation='renta';
+    else if(/compr|venta|adquir/.test(t))c.operation='venta';
+    else return false;
+  }else if(field==='type'){
+    const types=[['casa',/\bcasas?\b/],['departamento',/\b(departamentos?|depas?)\b/],['terreno',/\bterrenos?\b/],['local',/\blocal(es)?\b/],['oficina',/\boficinas?\b/],['bodega',/\bbodegas?\b/],['rancho',/\branchos?\b/]];
+    const found=types.find(([,rx])=>rx.test(t));
+    if(!found)return false;
+    c.type=found[0];
+  }else if(field==='zone'){
+    if(isAnyZone(text)){c.zone='';c.zoneFlexible=true;}
+    else {c.zone=text.trim();c.zoneFlexible=false;}
+  }else if(field==='budget'){
+    if(/(sin presupuesto|no se|cualquiera|me da igual)/.test(t)){c.maxPrice=null;}
+    else {const amount=parseMoney(text);if(!amount)return false;c.maxPrice=amount;}
+  }
+  chatState.awaiting='';
+  return true;
 }
 function extractCriteria(text){
   const t=normalizeText(text),c=chatState.criteria;
@@ -112,19 +142,15 @@ function extractCriteria(text){
   const b=t.match(/(\d+)\s*(?:recamaras?|habitaciones?|cuartos?)/);
   if(b)c.bedrooms=Number(b[1]);
   const amount=parseMoney(t);
-  if(amount){
-    if(/(?:desde|minimo|arriba de|mas de)/.test(t))c.minPrice=amount;
-    else c.maxPrice=amount;
-  }
-  const featureMap={
-    'jardín':['jardin','area verde'], 'alberca':['alberca','piscina'], 'estacionamiento':['estacionamiento','cochera','autos'],
-    'mascotas':['mascotas','pet friendly'], 'seguridad':['seguridad','vigilancia','privada'], 'terraza':['terraza'],
-    'amueblado':['amueblado','muebles'], 'una planta':['una planta','planta baja']
-  };
+  if(amount){if(/(?:desde|minimo|arriba de|mas de)/.test(t))c.minPrice=amount;else c.maxPrice=amount;}
+  if(isAnyZone(text)){c.zone='';c.zoneFlexible=true;}
+  const featureMap={'jardín':['jardin','area verde'],'alberca':['alberca','piscina'],'estacionamiento':['estacionamiento','cochera','autos'],'mascotas':['mascotas','pet friendly'],'seguridad':['seguridad','vigilancia','privada'],'terraza':['terraza'],'amueblado':['amueblado','muebles'],'una planta':['una planta','planta baja']};
   Object.entries(featureMap).forEach(([label,words])=>{if(words.some(w=>t.includes(w))&&!c.features.includes(label))c.features.push(label)});
-  const zones=[...new Set(properties.flatMap(p=>[p.location,p.zone,p.city,p.region]).filter(Boolean))];
-  const match=zones.find(z=>t.includes(normalizeText(z)));
-  if(match)c.zone=match;
+  if(!c.zoneFlexible){
+    const zones=[...new Set(properties.flatMap(p=>[p.location,p.zone,p.city,p.region]).filter(Boolean))];
+    const match=zones.find(z=>t.includes(normalizeText(z)));
+    if(match)c.zone=match;
+  }
   return c;
 }
 function propertyText(p){return normalizeText(`${p.title} ${p.location} ${p.zone||''} ${p.city||''} ${p.type} ${(p.features||[]).join(' ')}`)}
@@ -132,7 +158,7 @@ function scoreProperty(p){
   const c=chatState.criteria;let score=0,max=0,reasons=[];
   if(c.operation){max+=20;if(normalizeText(p.operation)===normalizeText(c.operation)){score+=20;reasons.push('operación')}}
   if(c.type){max+=18;if(propertyText(p).includes(normalizeText(c.type))){score+=18;reasons.push('tipo')}}
-  if(c.zone){max+=22;if(propertyText(p).includes(normalizeText(c.zone))){score+=22;reasons.push('zona')}}
+  if(c.zone&&!c.zoneFlexible){max+=22;if(propertyText(p).includes(normalizeText(c.zone))){score+=22;reasons.push('zona')}}
   if(c.maxPrice){max+=22;const price=Number(p.price)||0;if(price<=c.maxPrice){score+=22;reasons.push('presupuesto')}else if(price<=c.maxPrice*1.12){score+=10;reasons.push('cercano al presupuesto')}}
   if(c.minPrice){max+=8;if(Number(p.price)>=c.minPrice)score+=8}
   if(c.bedrooms){max+=10;if(Number(p.bedrooms)>=c.bedrooms){score+=10;reasons.push('recámaras')}}
@@ -143,73 +169,46 @@ function scoreProperty(p){
 function recommendProperties(){
   return properties.map(p=>({p,...scoreProperty(p)})).filter(x=>x.score>=18).sort((a,b)=>b.score-a.score||Number(a.p.price)-Number(b.p.price)).slice(0,3);
 }
-function bot(t){
-  chatState.history.push({role:'assistant',text:t});
-  $('#chatMessages').insertAdjacentHTML('beforeend',`<div class="bubble">${esc(t)}</div>`);$('#chatMessages').scrollTop=99999;
-}
+function bot(t){chatState.history.push({role:'assistant',text:t});$('#chatMessages').insertAdjacentHTML('beforeend',`<div class="bubble">${esc(t)}</div>`);$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;}
 function user(t){chatState.history.push({role:'user',text:t});$('#chatMessages').insertAdjacentHTML('beforeend',`<div class="bubble user">${esc(t)}</div>`)}
-function quickReplies(items){
-  const wrap=document.createElement('div');wrap.className='chat-quick-replies';
-  items.forEach(item=>{const b=document.createElement('button');b.type='button';b.textContent=item.label;b.onclick=()=>{wrap.remove();handleChatInput(item.value||item.label)};wrap.appendChild(b)});
-  $('#chatMessages').appendChild(wrap);$('#chatMessages').scrollTop=99999;
-}
+function quickReplies(items){const wrap=document.createElement('div');wrap.className='chat-quick-replies';items.forEach(item=>{const b=document.createElement('button');b.type='button';b.textContent=item.label;b.onclick=()=>{wrap.remove();handleChatInput(item.value||item.label)};wrap.appendChild(b)});$('#chatMessages').appendChild(wrap);$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;}
 function showRecommendations(){
   const results=recommendProperties();chatState.recommended=results.map(x=>x.p.id);
-  if(!results.length){bot('No encontré una coincidencia suficiente. Puedo ampliar la zona o el presupuesto.');quickReplies([{label:'Ampliar presupuesto 10%',value:'aumenta mi presupuesto 10%'},{label:'Buscar en todas las zonas',value:'cualquier zona'}]);return;}
+  if(!results.length){bot('No encontré una coincidencia exacta. Puedo buscar sin zona específica o ampliar el presupuesto.');quickReplies([{label:'Buscar en cualquier zona',value:'cualquier zona'},{label:'Nueva búsqueda',value:'nueva búsqueda'}]);return;}
   bot(`Encontré ${results.length} opción${results.length>1?'es':''}. ${formatCriteria()?`Criterios: ${formatCriteria()}.`:''}`);
   const html=results.map(({p,score,reasons})=>`<button type="button" class="chat-property-result" data-chat-property="${esc(p.id)}"><img src="${esc((p.photos||[])[0]||'https://placehold.co/180x120?text=Propiedad')}" alt=""><span><strong>${esc(p.title)}</strong><small>${money(p.price,p.currency)} · ${score}% coincidencia</small><em>${esc(reasons.slice(0,3).join(' · '))}</em></span></button>`).join('');
-  $('#chatMessages').insertAdjacentHTML('beforeend',`<div class="chat-results">${html}</div>`);$('#chatMessages').scrollTop=99999;
-  quickReplies([{label:'Comparar opciones',value:'compara las opciones'},{label:'Agendar visita',value:'quiero agendar una visita'}]);
+  $('#chatMessages').insertAdjacentHTML('beforeend',`<div class="chat-results">${html}</div>`);$('#chatMessages').scrollTop=$('#chatMessages').scrollHeight;
+  quickReplies([{label:'Comparar opciones',value:'compara las opciones'},{label:'Agendar visita',value:'quiero agendar una visita'},{label:'Nueva búsqueda',value:'nueva búsqueda'}]);
 }
 function nextQualificationQuestion(){
   const c=chatState.criteria;
-  if(!c.operation){bot('¿Buscas comprar o rentar?');quickReplies([{label:'Comprar'},{label:'Rentar'}]);return true;}
-  if(!c.type){bot('¿Qué tipo de inmueble buscas?');quickReplies([{label:'Casa'},{label:'Departamento'},{label:'Terreno'}]);return true;}
-  if(!c.zone){bot('¿En qué zona o municipio prefieres buscar?');return true;}
-  if(!c.maxPrice){bot('¿Cuál es tu presupuesto máximo aproximado?');return true;}
+  if(!c.operation){chatState.awaiting='operation';bot('¿Buscas comprar o rentar?');quickReplies([{label:'Comprar'},{label:'Rentar'}]);return true;}
+  if(!c.type){chatState.awaiting='type';bot('¿Qué tipo de inmueble buscas?');quickReplies([{label:'Casa'},{label:'Departamento'},{label:'Terreno'}]);return true;}
+  if(!c.zone&&!c.zoneFlexible){chatState.awaiting='zone';bot('¿En qué zona o municipio prefieres buscar? También puedes responder “cualquier zona”.');quickReplies([{label:'Cualquier zona',value:'cualquier zona'}]);return true;}
+  if(!c.maxPrice){chatState.awaiting='budget';bot('¿Cuál es tu presupuesto máximo aproximado? Puedes escribir, por ejemplo, “15 mil” o “4 millones”.');quickReplies([{label:'Ver opciones sin presupuesto',value:'sin presupuesto'}]);return true;}
   return false;
 }
-function leadScore(){
-  const c=chatState.criteria;let s=0;if(c.operation)s+=12;if(c.type)s+=12;if(c.zone)s+=14;if(c.maxPrice)s+=18;if(c.bedrooms)s+=8;if(c.features.length)s+=6;if(chatState.favoritePropertyId)s+=12;if(chatState.name)s+=8;if(chatState.contact)s+=10;return Math.min(100,s);
-}
-async function persistProspect(){
-  if(!chatState.contact)return;
-  const score=leadScore();
-  await api('saveProspect',{prospect:{name:chatState.name,contact:chatState.contact,email:chatState.email,...chatState.criteria,recommendedPropertyIds:chatState.recommended,favoritePropertyId:chatState.favoritePropertyId,score,level:score>=75?'Caliente':score>=45?'Medio':'Inicial',source:'Chat web',summary:chatState.history.slice(-12).map(x=>`${x.role}: ${x.text}`).join(' | ')}});
-}
-function compareRecommendations(){
-  const selected=chatState.recommended.map(id=>properties.find(p=>String(p.id)===String(id))).filter(Boolean).slice(0,3);
-  if(selected.length<2){bot('Necesito al menos dos propiedades recomendadas para compararlas.');return;}
-  const lines=selected.map(p=>`${p.title}: ${money(p.price,p.currency)}, ${Number(p.land)||0} m² de terreno, ${Number(p.construction)||0} m² de construcción`).join(' | ');
-  bot(`Comparación rápida: ${lines}. La mejor relación precio/terreno es ${selected.slice().sort((a,b)=>(Number(a.price)/(Number(a.land)||1))-(Number(b.price)/(Number(b.land)||1)))[0].title}.`);
-}
+function leadScore(){const c=chatState.criteria;let s=0;if(c.operation)s+=12;if(c.type)s+=12;if(c.zone||c.zoneFlexible)s+=14;if(c.maxPrice)s+=18;if(c.bedrooms)s+=8;if(c.features.length)s+=6;if(chatState.favoritePropertyId)s+=12;if(chatState.name)s+=8;if(chatState.contact)s+=10;return Math.min(100,s);}
+async function persistProspect(){if(!chatState.contact)return;const score=leadScore();await api('saveProspect',{prospect:{name:chatState.name,contact:chatState.contact,email:chatState.email,...chatState.criteria,recommendedPropertyIds:chatState.recommended,favoritePropertyId:chatState.favoritePropertyId,score,level:score>=75?'Caliente':score>=45?'Medio':'Inicial',source:'Chat web',summary:chatState.history.slice(-12).map(x=>`${x.role}: ${x.text}`).join(' | ')}});}
+function compareRecommendations(){const selected=chatState.recommended.map(id=>properties.find(p=>String(p.id)===String(id))).filter(Boolean).slice(0,3);if(selected.length<2){bot('Necesito al menos dos propiedades recomendadas para compararlas.');return;}const lines=selected.map(p=>`${p.title}: ${money(p.price,p.currency)}, ${Number(p.land)||0} m² de terreno, ${Number(p.construction)||0} m² de construcción`).join(' | ');bot(`Comparación rápida: ${lines}.`);}
 async function handleChatInput(raw){
   const text=String(raw||'').trim();if(!text)return;user(text);const t=normalizeText(text);
-  if(/cualquier zona/.test(t))chatState.criteria.zone='';
-  if(/aumenta.*10/.test(t)&&chatState.criteria.maxPrice)chatState.criteria.maxPrice=Math.round(chatState.criteria.maxPrice*1.1);
-  extractCriteria(text);
+  if(/^(nueva busqueda|empezar de nuevo|reiniciar|otra busqueda)$/.test(t)){resetChatSearch();bot('Empecemos de nuevo. ¿Buscas comprar o rentar?');chatState.awaiting='operation';quickReplies([{label:'Comprar'},{label:'Rentar'}]);return;}
   if(chatState.step==='name'){chatState.name=text;chatState.step='contact';bot('¿Cuál es tu WhatsApp o correo para que la asesora te contacte?');return;}
-  if(chatState.step==='contact'){chatState.contact=text;chatState.step='';try{await persistProspect();bot('Listo. Guardé tus preferencias y datos. La asesora podrá dar seguimiento a tu solicitud.');}catch(e){bot('Guardé la conversación, pero no pude registrar el prospecto: '+e.message)}return;}
+  if(chatState.step==='contact'){chatState.contact=text;chatState.step='';try{await persistProspect();bot('Listo. Guardé tus preferencias y datos. La asesora podrá dar seguimiento a tu solicitud.');}catch(e){bot('No pude registrar el prospecto: '+e.message)}return;}
+  const answeredAwaiting=setAwaitedAnswer(text);
+  extractCriteria(text);
   if(/compar/.test(t)){compareRecommendations();return;}
-  if(/agendar|cita|visita/.test(t)){
-    if(!chatState.favoritePropertyId&&chatState.recommended[0])chatState.favoritePropertyId=chatState.recommended[0];
-    chatState.step='name';bot('Perfecto. ¿A nombre de quién registro la solicitud?');return;
-  }
+  if(/agendar|cita|visita/.test(t)){if(!chatState.favoritePropertyId&&chatState.recommended[0])chatState.favoritePropertyId=chatState.recommended[0];chatState.step='name';bot('Perfecto. ¿A nombre de quién registro la solicitud?');return;}
   if(/contactar|whatsapp|asesora/.test(t)){chatState.step='name';bot('Claro. ¿Cuál es tu nombre?');return;}
-  if(/buscar|busco|quiero|necesito|casa|departamento|terreno|renta|comprar|millones|recamaras|jardin|alberca/.test(t)){
-    if(!nextQualificationQuestion())showRecommendations();return;
-  }
-  if(chatState.favoritePropertyId){
-    const p=properties.find(x=>String(x.id)===String(chatState.favoritePropertyId));
-    if(p&&/precio|cuanto/.test(t)){bot(`${p.title} tiene un precio de ${money(p.price,p.currency)}${p.operation==='renta'?' mensuales':''}.`);return;}
-    if(p&&/medidas|terreno|construccion/.test(t)){bot(`${p.title}: ${Number(p.land)||0} m² de terreno y ${Number(p.construction)||0} m² de construcción.`);return;}
-  }
-  bot('Puedo buscar por compra o renta, zona, presupuesto, tipo de inmueble, recámaras y características; también puedo comparar opciones o registrar una visita.');
-  quickReplies([{label:'Buscar propiedad'},{label:'Ver opciones disponibles',value:'busco una propiedad'},{label:'Hablar con asesora'}]);
+  if(/ver propiedades|mostrar propiedades|ver opciones|sin presupuesto/.test(t)){if(!nextQualificationQuestion())showRecommendations();return;}
+  if(answeredAwaiting||/buscar|busco|quiero|necesito|casa|departamento|terreno|renta|comprar|millones|recamaras|jardin|alberca|centro|zona/.test(t)){if(!nextQualificationQuestion())showRecommendations();return;}
+  if(chatState.favoritePropertyId){const p=properties.find(x=>String(x.id)===String(chatState.favoritePropertyId));if(p&&/precio|cuanto/.test(t)){bot(`${p.title} tiene un precio de ${money(p.price,p.currency)}${p.operation==='renta'?' mensuales':''}.`);return;}if(p&&/medidas|terreno|construccion/.test(t)){bot(`${p.title}: ${Number(p.land)||0} m² de terreno y ${Number(p.construction)||0} m² de construcción.`);return;}}
+  bot('No comprendí esa respuesta. Puedes escribir “cualquier zona”, indicar un municipio, un presupuesto o iniciar una nueva búsqueda.');quickReplies([{label:'Cualquier zona',value:'cualquier zona'},{label:'Nueva búsqueda',value:'nueva búsqueda'}]);
 }
 function openChat(){
   $('#chatPanel').hidden=false;
-  if(!$('#chatMessages').children.length){bot('Hola. Soy el asistente de MARZA. Te ayudaré a encontrar propiedades reales del inventario y a registrar una visita.');quickReplies([{label:'Comprar'},{label:'Rentar'},{label:'Ver propiedades',value:'busco una propiedad'}]);}
+  if(!$('#chatMessages').children.length){bot('Hola. Soy el asistente de MARZA. Te ayudaré a encontrar propiedades reales del inventario y a registrar una visita.');quickReplies([{label:'Comprar'},{label:'Rentar'},{label:'Ver propiedades',value:'busco una propiedad'},{label:'Nueva búsqueda',value:'nueva búsqueda'}]);}
 }
 $('#chatButton').onclick=openChat;document.querySelectorAll('[data-open-chat]').forEach(button=>button.addEventListener('click',openChat));$('#chatClose').onclick=()=>$('#chatPanel').hidden=true;
 $('#chatForm').onsubmit=e=>{e.preventDefault();const text=$('#chatInput').value.trim();$('#chatInput').value='';handleChatInput(text)};

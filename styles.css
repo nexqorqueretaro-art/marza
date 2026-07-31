@@ -72,3 +72,20 @@
 .marketplace-dialog{width:min(1180px,96vw);padding:0;background:#fcfaf7}.marketplace-panel{padding:34px}.marketplace-panel h2{font-family:Georgia,serif;font-size:clamp(2rem,4vw,3.2rem);margin:0 0 8px}.marketplace-help{color:var(--muted);margin-bottom:24px}.marketplace-preview-wrap{display:grid;grid-template-columns:minmax(320px,.9fr) minmax(360px,1.1fr);gap:26px;align-items:start}.marketplace-preview-wrap canvas{width:100%;height:auto;border-radius:22px;box-shadow:var(--shadow);background:#eee}.marketplace-fields{display:grid;gap:13px}.marketplace-fields label{display:grid;gap:6px;font-weight:750}.marketplace-fields input,.marketplace-fields textarea{width:100%;border:1px solid var(--line);border-radius:14px;padding:12px;background:#fff}.marketplace-fields textarea{resize:vertical;line-height:1.5}.marketplace-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:24px}.marketplace-actions a{align-self:stretch}.form-actions{flex-wrap:wrap}@media(max-width:800px){.marketplace-preview-wrap{grid-template-columns:1fr}.marketplace-panel{padding:26px 18px}}
 
 .marketplace-status-error{color:#9a3f2e;font-weight:700}
+
+
+/* Corrección del asistente en móvil */
+.chat-panel{display:flex;flex-direction:column;max-height:calc(100dvh - 118px)}
+.chat-messages{flex:1;height:auto;min-height:0;overscroll-behavior:contain}
+.chat-form{flex:0 0 auto;background:#fff}
+.privacy-note{flex:0 0 auto;background:#fff}
+@media(max-width:700px){
+  .chat-panel{left:10px;right:10px;bottom:82px;width:auto;height:min(680px,calc(100dvh - 105px));max-height:calc(100dvh - 105px);border-radius:20px}
+  .chat-head{padding:14px 16px}
+  .chat-messages{padding:14px;font-size:.98rem}
+  .bubble{max-width:88%;line-height:1.45}
+  .chat-form{padding:10px}
+  .chat-form input{font-size:16px}
+  .chat-quick-replies{display:flex;flex-wrap:wrap;gap:8px}
+  .chat-quick-replies button{min-height:40px}
+}
