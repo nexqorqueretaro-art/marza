@@ -89,3 +89,8 @@
   .chat-quick-replies{display:flex;flex-wrap:wrap;gap:8px}
   .chat-quick-replies button{min-height:40px}
 }
+
+
+/* Corrección: respetar el atributo hidden en paneles y diálogos auxiliares */
+[hidden]{display:none !important;}
+.chat-panel[hidden]{display:none !important;}

@@ -210,7 +210,11 @@ function openChat(){
   $('#chatPanel').hidden=false;
   if(!$('#chatMessages').children.length){bot('Hola. Soy el asistente de MARZA. Te ayudaré a encontrar propiedades reales del inventario y a registrar una visita.');quickReplies([{label:'Comprar'},{label:'Rentar'},{label:'Ver propiedades',value:'busco una propiedad'},{label:'Nueva búsqueda',value:'nueva búsqueda'}]);}
 }
-$('#chatButton').onclick=openChat;document.querySelectorAll('[data-open-chat]').forEach(button=>button.addEventListener('click',openChat));$('#chatClose').onclick=()=>$('#chatPanel').hidden=true;
+const chatPanelEl=$('#chatPanel');
+if(chatPanelEl) chatPanelEl.hidden=true;
+$('#chatButton').onclick=openChat;
+document.querySelectorAll('[data-open-chat]').forEach(button=>button.addEventListener('click',openChat));
+$('#chatClose').onclick=()=>{chatPanelEl.hidden=true;};
 $('#chatForm').onsubmit=e=>{e.preventDefault();const text=$('#chatInput').value.trim();$('#chatInput').value='';handleChatInput(text)};
 $('#chatMessages').addEventListener('click',e=>{const b=e.target.closest('[data-chat-property]');if(!b)return;const id=b.dataset.chatProperty;chatState.favoritePropertyId=id;const p=properties.find(x=>String(x.id)===String(id));if(p){openProperty(id);bot(`Seleccionaste “${p.title}”. Puedo explicarte sus datos, compararla o registrar una visita.`)}});
 
