@@ -258,7 +258,7 @@ function copyText(value,label){
   navigator.clipboard.writeText(value).then(()=>{$('#marketplaceStatus').textContent=`${label} copiado.`}).catch(()=>{prompt('Copia este contenido:',value)});
 }
 function loadImageCORS(src){return new Promise((resolve,reject)=>{const img=new Image();img.crossOrigin='anonymous';img.onload=()=>resolve(img);img.onerror=reject;img.src=src+(src.includes('?')?'&':'?')+'cache='+Date.now()})}
-function loadImageData(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('No se pudo cargar la imagen principal.'));img.src=src})}
+function loadImageData(src){return new Promise((resolve,reject)=>{const img=new Image();img.onload=()=>resolve(img);img.onerror=()=>reject(new Error('El navegador no pudo convertir la fotografía recibida por el backend.'));img.src=src})}
 function drawCoverImage(ctx,img,x,y,w,h){
   const r=Math.max(w/img.width,h/img.height),sw=w/r,sh=h/r,sx=(img.width-sw)/2,sy=(img.height-sh)/2;
   ctx.drawImage(img,sx,sy,sw,sh,x,y,w,h);
@@ -267,22 +267,34 @@ async function renderMarketplaceCanvas(p){
   const canvas=$('#marketplaceCanvas'),ctx=canvas.getContext('2d');
   ctx.clearRect(0,0,1080,1080);ctx.fillStyle='#f7f1e8';ctx.fillRect(0,0,1080,1080);
   const cover=(p.photos||[])[0];
+  let imageLoaded=false;
+  let imageError='';
+
   if(cover){
     try{
-      // La portada se obtiene desde Apps Script en base64 para evitar el bloqueo CORS de Google Drive.
       const response=await api('getMarketplaceCoverImage',{token:sessionToken,id:p.id});
+      if(!response.dataUrl) throw new Error('El backend no devolvió dataUrl.');
       const img=await loadImageData(response.dataUrl);
       drawCoverImage(ctx,img,0,0,1080,720);
+      imageLoaded=true;
     }catch(primaryError){
+      imageError=primaryError?.message||String(primaryError);
+      console.error('Error del backend al preparar la portada:',primaryError);
       try{
         const img=await loadImageCORS(cover);
         drawCoverImage(ctx,img,0,0,1080,720);
+        imageLoaded=true;
       }catch(fallbackError){
-        console.error('No se pudo cargar la fotografía de portada',primaryError,fallbackError);
-        ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720);
+        console.error('Error de carga directa de la portada:',fallbackError);
       }
     }
-  }else{ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720)}
+  }
+
+  if(!imageLoaded){
+    ctx.fillStyle='#ded1c2';ctx.fillRect(0,0,1080,720);
+    ctx.fillStyle='#6f5848';ctx.font='700 30px Arial';ctx.fillText('FOTOGRAFÍA NO DISPONIBLE',58,350);
+  }
+
   const grad=ctx.createLinearGradient(0,480,0,720);grad.addColorStop(0,'rgba(45,27,18,0)');grad.addColorStop(1,'rgba(45,27,18,.82)');ctx.fillStyle=grad;ctx.fillRect(0,480,1080,240);
   ctx.fillStyle='#fff';ctx.font='700 34px Arial';ctx.fillText('MARZA BIENES RAÍCES',58,74);
   ctx.font='700 44px Georgia';wrapCanvasText(ctx,marketplaceTitleFor(p),58,780,720,54,3);
@@ -291,8 +303,10 @@ async function renderMarketplaceCanvas(p){
   const qrBox=document.createElement('div');qrBox.style.position='fixed';qrBox.style.left='-9999px';document.body.appendChild(qrBox);
   try{
     new QRCode(qrBox,{text:propertyPublicUrl(p.id),width:220,height:220,correctLevel:QRCode.CorrectLevel.M});
-    await new Promise(r=>setTimeout(r,100));const q=qrBox.querySelector('canvas, img');if(q)ctx.drawImage(q,820,820,210,210);
+    await new Promise(r=>setTimeout(r,180));const q=qrBox.querySelector('canvas, img');if(q)ctx.drawImage(q,820,820,210,210);
   }finally{qrBox.remove()}
+
+  return {imageLoaded,imageError};
 }
 function wrapCanvasText(ctx,text,x,y,maxWidth,lineHeight,maxLines){
   const words=String(text).split(/\s+/);let line='',lines=[];
@@ -323,8 +337,8 @@ async function openMarketplaceTools(){
     if(!marketplaceDialog.open) marketplaceDialog.showModal();
 
     try{
-      await renderMarketplaceCanvas(p);
-      $('#marketplaceStatus').textContent='Material listo para publicar.';
+      const coverResult=await renderMarketplaceCanvas(p);
+      $('#marketplaceStatus').textContent=coverResult.imageLoaded?'Material listo para publicar.':'Textos listos, pero la fotografía no pudo cargarse: '+(coverResult.imageError||'verifica que Apps Script esté actualizado y publicado.');
     }catch(canvasError){
       console.error('No se pudo generar la portada:',canvasError);
       $('#marketplaceStatus').textContent='Los textos están listos. No se pudo generar la portada automáticamente; revisa la conexión o el bloqueador del navegador.';
